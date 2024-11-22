@@ -210,10 +210,18 @@ class Schedule:
         return self.formatter.format_schedule(self.schedule, month, year)
     
 class PayReport:
+    """
+    A class to generate pay reports for caregivers
+    Attributes: caregivers, a list
+    """
     def __init__(self, caregivers: List[Caregiver]):
         self.caregivers = caregivers
 
     def calculate_pay(self) -> Dict:
+        """
+        Calculates weekly and monthly pay per caregive
+        Returns a dictionary where keys are caregiver names, values are dictionaries containing hours, payrate, etc
+        """
         pay_data = {}
         for caregiver in self.caregivers:
             weekly_gross = caregiver.hours * caregiver.pay_rate
@@ -226,6 +234,10 @@ class PayReport:
         return pay_data
     
     def generate_html_report(self) -> str:
+        """
+        Generates HTML report for caregiver pay info
+        Returns HTML content as a string
+        """
         pay_data = self.calculate_pay()
         total_weekly = sum(data["weekly_gross"] for data in pay_data.values())
         total_monthly = sum(data["monthly_gross"] for data in pay_data.values())
@@ -248,6 +260,7 @@ class PayReport:
             '''
         ]
 
+        #adds rows for each caregivers details
         for name, data in pay_data.items():
             row = f'''
                 <tr>
@@ -260,6 +273,7 @@ class PayReport:
             '''
             html_content.append(row)
 
+        #adds totals row
         html_content.append(f'''
                     <tr class="totals-row">
                         <th colspan="3">Totals:</th>
@@ -274,11 +288,15 @@ class PayReport:
         return '\n'.join(html_content)
     
     def display_pay_report(self) -> None:
+        """
+        Displays the pay report
+        """
         pay_data = self.calculate_pay()
         print("\nPay report:\n")
         total_weekly = 0
         total_monthly = 0
 
+        #prints pay details for caregivers
         for name, pay in pay_data.items():
             print(f"{name}:")
             print(f"  Hours: {pay['hours']:.1f}")
@@ -288,6 +306,7 @@ class PayReport:
             total_weekly += pay['weekly_gross']
             total_monthly += pay['monthly_gross']
 
+        #prints out totals
         print(f"Total Weekly Pay: ${total_weekly:.2f}")
         print(f"Total Monthly Pay: ${total_monthly:.2f}")
 
@@ -298,14 +317,14 @@ if __name__ == "__main__":
         Caregiver("Brendan Dorrian", "301-8901", "bdorrian@testcase.com"),
     ]
 
-
+    #sets pay rates and hours
     caregivers[0].pay_rate = 25.0
     caregivers[1].pay_rate = 30.0
     caregivers[2].pay_rate = 28.0
 
     for caregiver in caregivers:
         caregiver.add_hours(40)  
-        for day in range(1, 8):
+        for day in range(1, 8):    #sets availability for week
             date = f"2024-12-{day:02d}"
             caregiver.set_availability(
                 date,
@@ -314,11 +333,11 @@ if __name__ == "__main__":
             )
             caregiver.set_availability(date, "PM", AvailStatus.AVAILABLE)
 
-
+    #marks availability for christmas holiday
     caregivers[0].set_availability("2024-12-25", "AM", AvailStatus.UNAVAILABLE)
     caregivers[0].set_availability("2024-12-25", "PM", AvailStatus.UNAVAILABLE)
 
-
+    #generate a display schedule
     schedule = Schedule(caregivers)
     schedule.create_schedule(12, 2024)
     print("\nDisplaying full schedule:")
@@ -336,7 +355,7 @@ if __name__ == "__main__":
     html_pay_report = pay_report.generate_html_report()
     print("\nHTML Pay Report generated successfully")
 
-
+#saves reports to files
 html_path = "schedule.html"
 pay_path = "pay_report.html"
 
