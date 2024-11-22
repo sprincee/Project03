@@ -1,5 +1,7 @@
 
 # Project Code (version 1.1)
+# The purpose of this program is to create a schedule for caregivers. 
+# The program takes into account every persons’ availability and accommodates it towards the patient's schedule.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
