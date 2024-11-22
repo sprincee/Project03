@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 import calendar
 import html
+import os
 from typing import Dict, List, Optional
 
 
@@ -136,7 +137,10 @@ class Caregiver:
     def set_availability(self, date: str, shift: str, status: str) -> None:
         if status not in [AvailStatus.AVAILABLE, AvailStatus.UNAVAILABLE, AvailStatus.PREFERRED]:
             raise ValueError(f"Availability status is invalid! -- {status}")
-        self.availability[{date, shift}] = status
+        self.availability[(date, shift)] = status
+
+    def get_availability(self, date: str, shift: str) -> None:
+        return self.availability.get((date, shift), AvailStatus.AVAILABLE)
 
     def add_hours(self, hours: float) -> None:
         if hours < 0:
@@ -180,11 +184,12 @@ class Schedule:
             if caregiver.get_availability(date, shift) == AvailStatus.PREFERRED
         ]
 
-        assigned_caregiver = (
-            preferred_caregivers[0] if preferred_caregivers else
-            available_caregivers[0] if available_caregivers else
-            None
-        )
+        if preferred_caregivers:
+            assigned_caregiver = min(preferred_caregivers, key=lambda x: x.hours)
+        elif available_caregivers:
+            assigned_caregiver = min(available_caregivers, key=lambda x: x.hours)
+        else:
+            assigned_caregiver = None
 
         if assigned_caregiver:
             assigned_caregiver.add_hours(6)
@@ -217,7 +222,7 @@ class PayReport:
         return pay_data
     
     def generate_html_report(self) -> str:
-        pay_data = self.calculate_pay
+        pay_data = self.calculate_pay()
         total_weekly = sum(data["weekly_gross"] for data in pay_data.values())
         total_monthly = sum(data["monthly_gross"] for data in pay_data.values())
 
@@ -283,14 +288,19 @@ class PayReport:
         print(f"Total Monthly Pay: ${total_monthly:.2f}")
 
 if __name__ == "__main__":
-    
     caregivers = [
         Caregiver("Mahad Khan", "301-1234", "mkhan@testcase.com"),
         Caregiver("Derek d'Agostino", "301-5678", "dagostino@testcase.com"),
         Caregiver("Brendan Dorrian", "301-8901", "bdorrian@testcase.com"),
     ]
 
+
+    caregivers[0].pay_rate = 25.0
+    caregivers[1].pay_rate = 30.0
+    caregivers[2].pay_rate = 28.0
+
     for caregiver in caregivers:
+        caregiver.add_hours(40)  
         for day in range(1, 8):
             date = f"2024-12-{day:02d}"
             caregiver.set_availability(
@@ -300,121 +310,36 @@ if __name__ == "__main__":
             )
             caregiver.set_availability(date, "PM", AvailStatus.AVAILABLE)
 
-schedule = Schedule(caregivers)
-schedule.create_schedule(12, 2024)
 
-html_schedule = schedule.generate_html_schedule(12, 2024)
+    caregivers[0].set_availability("2024-12-25", "AM", AvailStatus.UNAVAILABLE)
+    caregivers[0].set_availability("2024-12-25", "PM", AvailStatus.UNAVAILABLE)
 
-pay_report = PayReport(caregivers)
-html_pay_report - pay_report.generate_html_report()
 
-### Code Below May Cause Errors -- It has been commented out ###
-'''
+    schedule = Schedule(caregivers)
+    schedule.create_schedule(12, 2024)
+    print("\nDisplaying full schedule:")
+    schedule.display_schedule()
 
-class Schedule:
-    def __init__(self, caregivers):
-        #generates schedule with list of caregivers
-        self.caregivers = caregivers
-        self.schedule = {}  #dictionary to store the schedule
-    
-    def create_schedule(self, month, year):
-        #generates schedule for given month and year
-        import calendar
-        cal = calendar.Calendar()
-        for day in cal.itermonthdays(year, month):
-            if day != 0:  #ignores padding days
-                date = f"{year}-{month:02d}-{day:02d}"
-                self.schedule[date] = {"AM": None, "PM": None}
-                
-        #assigns shifts based on availability and preferences 
-                for shift in ["AM", "PM"]:
-                        #finds all caregivers available for this date and shift
-                        available_caregivers = [
-                            caregiver for caregiver in self.caregivers
-                            if caregiver.availability.get((date, shift), "available") != "unavailable"
-                        ]
 
-                        #prioritizes caregivers with "preferred" status
-                        preferred_caregivers = [
-                            caregiver for caregiver in available_caregivers
-                            if caregiver.availability.get((date, shift)) == "preferred"
-                        ]
+    html_schedule = schedule.generate_html_schedule(12, 2024)
+    print("\nHTML Schedule generated successfully")
 
-                        #assigns a caregiver to the shift
-                        if preferred_caregivers:
-                            assigned_caregiver = preferred_caregivers[0]  # Take the first preferred
-                        elif available_caregivers:
-                            assigned_caregiver = available_caregivers[0]  # Take the first available
-                        else:
-                            assigned_caregiver = "No coverage"
 
-                        #updates the schedule
-                        self.schedule[date][shift] = assigned_caregiver.name if assigned_caregiver != "No coverage" else "No coverage"
+    pay_report = PayReport(caregivers)
+    print("\nDisplaying pay report:")
+    pay_report.display_pay_report()
 
-                        #updates caregiver hours if they were assigned
-                        if assigned_caregiver != "No coverage":
-                            assigned_caregiver.hours += 6  # Each shift is 6 hours
-                            
-    def display_schedule(self):
-       #displays in readable format
-        print("Care Schedule:\n")
-        for date, shifts in self.schedule.items():
-            print(f"{date}: AM: {shifts['AM']}, PM: {shifts['PM']}")
+    html_pay_report = pay_report.generate_html_report()
+    print("\nHTML Pay Report generated successfully")
 
-class PayReport:
-    def __init__(self, caregivers):
-        #initializes pay report with list of caregivers
-        self.caregivers = caregivers
 
-    def calculate_pay(self):
-        #calculates weekly and monthly pay per caregiver
-        pay_data = {}
-        for caregiver in self.caregivers:
-            weekly_gross = caregiver.hours * caregiver.pay_rate
-            pay_data[caregiver.name] = {
-                "weekly_gross": weekly_gross,
-                "monthly_gross": weekly_gross * 4  #simplified 
-            }
-        return pay_data
+html_path = "schedule.html"
+pay_path = "pay_report.html"
 
-    def display_pay_report(self):
-        #displays pay report
-        print("\nPay Report:\n")
-        total_weekly = 0
-        total_monthly = 0
-        for name, pay in self.calculate_pay().items():
-            print(f"{name}: Weekly: ${pay['weekly_gross']:.2f}, Monthly: ${pay['monthly_gross']:.2f}")
-            total_weekly += pay['weekly_gross']
-            total_monthly += pay['monthly_gross']
-        print(f"\nTotal Weekly Pay: ${total_weekly:.2f}")
-        print(f"Total Monthly Pay: ${total_monthly:.2f}")
+with open(html_path, "w", encoding="utf-8") as f:
+    f.write(html_schedule)
+print(f"Schedule saved to: {os.path.abspath(html_path)}")
 
-#run this, main program 
-#creates caregivers
-caregivers = [
-    Caregiver("Alice Johnson", "545-1234", "alice@example.com"),
-    Caregiver("Bob Smith", "125-5678", "bob@example.com"),
-    Caregiver("Carol Lee", "355-8765", "carol@example.com"),
-    Caregiver("David Brown", "555-4321", "david@example.com"),
-    Caregiver("Emma Wilson", "577-6789", "emma@example.com"),
-    Caregiver("Frank Green", "598-9876", "frank@example.com"),
-    Caregiver("Grace White", "666-3456", "grace@example.com"),
-    Caregiver("Hannah Black", "544-6543", "hannah@example.com"),
-]
-
-#sets sample availability
-for caregiver in caregivers:
-    for day in range(1, 8):  #example: set availability for the first week of the month
-        date = f"2024-12-{day:02d}"
-        caregiver.set_availability(date, "AM", "preferred" if day % 2 == 0 else "available")
-        caregiver.set_availability(date, "PM", "available")
-
-#creates the schedule
-schedule = Schedule(caregivers)
-schedule.create_schedule(12, 2024)  #December 2024
-schedule.display_schedule()
-
-#generates and display the pay report
-pay_report = PayReport(caregivers)
-pay_report.display_pay_report()
-'''
+with open(pay_path, "w", encoding="utf-8") as f:
+    f.write(html_pay_report)
+print(f"Pay report saved to: {os.path.abspath(pay_path)}")
