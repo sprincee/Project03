@@ -143,6 +143,171 @@ class Caregiver:
             raise ValueError("Hours cannot be negative! Time doesn't flow that way!")
         self.hours += hours
 
+class Schedule:
+    def __init__(self, caregivers: List[Caregiver]):
+        self.caregiver = caregivers
+        self.schedule: Dict = {}
+        self.formatter = HTMLScheduleFormatter()
+
+    def create_schedule(self, month: int, year: int) -> None:
+        self._validate_date(month, year)
+        cal = calendar.Calendar()
+
+        for day in cal.itermonthdays(year, month):
+            if day != 0:
+                self._schedule_day(day, month, year)
+
+    def _validate_date(self, month: int, year: int) -> None:
+        if not 1 <= month <= 12:
+            raise ValueError("Invalid month!")
+        if year < 2000:
+            raise ValueError("Invalid year!")
+        
+    def _schedule_day(self, day: int, month: int, year: int) -> None:
+        date = f'{year}-{month:02d}-{day:02d}'
+        self.schedule[date] = {"AM": None, "PM": None}
+
+        for shift in ['AM', 'PM']:
+            self._assign_shift(date, shift)
+
+    def _assign_shift(self, date: str, shift: str) -> None:
+        available_caregivers = [
+            caregiver for caregiver in self.caregiver
+            if caregiver.get_availability(date, shift) != AvailStatus.UNAVAILABLE
+        ]
+        preferred_caregivers = [
+            caregiver for caregiver in self.caregiver
+            if caregiver.get_availability(date, shift) == AvailStatus.PREFERRED
+        ]
+
+        assigned_caregiver = (
+            preferred_caregivers[0] if preferred_caregivers else
+            available_caregivers[0] if available_caregivers else
+            None
+        )
+
+        if assigned_caregiver:
+            assigned_caregiver.add_hours(6)
+            self.schedule[date][shift] = assigned_caregiver.name
+        else:
+            self.schedule[date][shift] = "No coverage"
+
+    def display_schedule(self) -> None:
+        print("Care Schedule:\n")
+        for date, shifts in self.schedule.items():
+            print(f"{date}: AM: {shifts['AM']}, PM: {shifts['PM']}")
+
+    def generate_html_schedule(self, month: int, year: int) -> str:
+        return self.formatter.format_schedule(self.schedule, month, year)
+    
+class PayReport:
+    def __init__(self, caregivers: List[Caregiver]):
+        self.caregivers = caregivers
+
+    def calculate_pay(self) -> Dict:
+        pay_data = {}
+        for caregiver in self.caregivers:
+            weekly_gross = caregiver.hours * caregiver.pay_rate
+            pay_data[caregiver.name] = {
+                "hours": caregiver.hours,
+                "rate": caregiver.pay_rate,
+                "weekly_gross": weekly_gross,
+                "monthly_gross": weekly_gross * 4
+            }
+        return pay_data
+    
+    def generate_html_report(self) -> str:
+        pay_data = self.calculate_pay
+        total_weekly = sum(data["weekly_gross"] for data in pay_data.values())
+        total_monthly = sum(data["monthly_gross"] for data in pay_data.values())
+
+        html_content = [
+            '''
+            <div class="pay-report">
+                <h2>Pay Report</h2>
+                <table border="1">
+                    <thread>
+                        <tr>
+                            <th>Caregiver</th>
+                            <th>Hours</th>
+                            <th>Rate</th>
+                            <th>Weekly Pay</th>
+                            <th>Monthly Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            '''
+        ]
+
+        for name, data in pay_data.items():
+            row = f'''
+                <tr>
+                    <td>{html.escape(name)}</td>
+                    <td>{data["hours"]:.1f}</td>
+                    <td>${data["rate"]:.2f}</td>
+                    <td>${data["weekly_gross"]:.2f}</td>
+                    <td>${data["monthly_gross"]:.2f}</td>
+                </tr>
+            '''
+            html_content.append(row)
+
+        html_content.append(f'''
+                    <tr class="totals-row">
+                        <th colspan="3">Totals:</th>
+                        <td>${total_weekly:.2f}</td>
+                        <td>${total_monthly:.2f}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        ''')
+
+        return '\n'.join(html_content)
+    
+    def display_pay_report(self) -> None:
+        pay_data = self.calculate_pay()
+        print("\nPay report:\n")
+        total_weekly = 0
+        total_monthly = 0
+
+        for name, pay in pay_data.items():
+            print(f"{name}:")
+            print(f"  Hours: {pay['hours']:.1f}")
+            print(f"  Rate: ${pay['rate']:.2f}")
+            print(f"  Weekly Pay: ${pay['weekly_gross']:.2f}")
+            print(f"  Monthly Pay: ${pay['monthly_gross']:.2f}\n")
+            total_weekly += pay['weekly_gross']
+            total_monthly += pay['monthly_gross']
+
+        print(f"Total Weekly Pay: ${total_weekly:.2f}")
+        print(f"Total Monthly Pay: ${total_monthly:.2f}")
+
+if __name__ == "__main__":
+    
+    caregivers = [
+        Caregiver("Mahad Khan", "301-1234", "mkhan@testcase.com"),
+        Caregiver("Derek d'Agostino", "301-5678", "dagostino@testcase.com"),
+        Caregiver("Brendan Dorrian", "301-8901", "bdorrian@testcase.com"),
+    ]
+
+    for caregiver in caregivers:
+        for day in range(1, 8):
+            date = f"2024-12-{day:02d}"
+            caregiver.set_availability(
+                date,
+                "AM",
+                AvailStatus.PREFERRED if day % 2 == 0 else AvailStatus.AVAILABLE
+            )
+            caregiver.set_availability(date, "PM", AvailStatus.AVAILABLE)
+
+schedule = Schedule(caregivers)
+schedule.create_schedule(12, 2024)
+
+html_schedule = schedule.generate_html_schedule(12, 2024)
+
+pay_report = PayReport(caregivers)
+html_pay_report - pay_report.generate_html_report()
+
 ### Code Below May Cause Errors -- It has been commented out ###
 '''
 
