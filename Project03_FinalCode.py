@@ -19,6 +19,7 @@ class ScheduleFormatter(ABC):
     def format_schedule(self, schedule: Dict, month: int, year: int) -> str:
         pass
 
+#Create calendar for the schedule
 class HTMLScheduleFormatter(ScheduleFormatter):
     def format_schedule(self, schedule: Dict, month: int, year: int) -> str:
         cal = calendar.HTMLCalendar()
@@ -68,7 +69,8 @@ class HTMLScheduleFormatter(ScheduleFormatter):
         html_content.append('</table>')
         
         return ''.join(html_content)
-
+        
+# Create a pay report to pay caretakers 
     def format_pay_report(self, pay_data: Dict) -> str:
         html_content = [
             '<table border="1" cellpadding="4" cellspacing="0">',
@@ -114,7 +116,7 @@ class HTMLScheduleFormatter(ScheduleFormatter):
         
         return ''.join(html_content)
     
-
+#Create profile for caregiver allowing input for avaliability to work
 class Caregiver:
     def __init__(self, name: str, phone: str, email: str, pay_rate: float = 20, hours: float = 0):
         self.validate_input(name, phone, email, pay_rate)
@@ -146,7 +148,7 @@ class Caregiver:
         if hours < 0:
             raise ValueError("Hours cannot be negative! Time doesn't flow that way!")
         self.hours += hours
-
+# Create schedule to allow for everything to be taken into account and viewable
 class Schedule:
     def __init__(self, caregivers: List[Caregiver]):
         self.caregiver = caregivers
