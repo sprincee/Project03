@@ -12,18 +12,38 @@ from typing import Dict, List, Optional
 
 
 class AvailStatus:
+    '''
+    A class containing const(s) for caregiver availability status.
+    '''
     PREFERRED = 'preferred'
     AVAILABLE = 'available'
     UNAVAILABLE = 'unavailable'
 
 class ScheduleFormatter(ABC):
+    '''
+    A abstract base class defining the interface for schedule formatting.
+    '''
     @abstractmethod
     def format_schedule(self, schedule: Dict, month: int, year: int) -> str:
         pass
 
-#Create calendar for the schedule
+
 class HTMLScheduleFormatter(ScheduleFormatter):
+    '''
+    A class implementation for a formatter that generates HTML formatted schedules.
+    '''
     def format_schedule(self, schedule: Dict, month: int, year: int) -> str:
+        '''
+        Creates a calendar format for the schedule.
+
+        Args:
+            schedule (Dict): A dictionary mapping dates for shift coverage.
+            month (int): The month to be displayed.
+            year (int): The year to be displayed.
+
+        Returns:
+            str: A HTML string containing the formatted calendar with shift information & more.
+        '''
         cal = calendar.HTMLCalendar()
         html_content = [
             '''
@@ -72,8 +92,23 @@ class HTMLScheduleFormatter(ScheduleFormatter):
         
         return ''.join(html_content)
         
-# Create a pay report to pay caretakers 
+ 
     def format_pay_report(self, pay_data: Dict) -> str:
+        '''
+        Formats the pay report, responsible for paying caretakers. 
+
+        Args:
+            pay_data (Dict): A dictionary mapping caretaker names to their payment info.
+
+        Returns:
+            str: A HTML string containing a formatted payment report table including:
+                - Caretaker names
+                - Hours worked
+                - Hourly rates
+                - Weekly pay calculations
+                - Monthly pay calculations
+                - Total payments
+        '''
         html_content = [
             '<table border="1" cellpadding="4" cellspacing="0">',
             '''
@@ -118,9 +153,25 @@ class HTMLScheduleFormatter(ScheduleFormatter):
         
         return ''.join(html_content)
     
-#Create profile for caregiver allowing input for avaliability to work
+
 class Caregiver:
+    '''
+    A class to repersent caregivers with their personal information as well as availability.
+    '''
     def __init__(self, name: str, phone: str, email: str, pay_rate: float = 20, hours: float = 0):
+        '''
+        Initializes a new Caregiver instance.
+
+        Args:
+            name (str): Name of caretaker.
+            phone (str): Phone number of caretaker.
+            email (str): Email of caretaker.
+            pay_rate (float): Caretaker hourly pay rate. Defaults to 20.
+            hours (float): Caretaker hours worked. Defaults to 0.
+
+        Raises:
+            ValueError: If fields left empty, pay rate is negative, or email format is invalid. 
+        '''
         self.validate_input(name, phone, email, pay_rate)
         self.name = name
         self.phone = phone
@@ -131,6 +182,18 @@ class Caregiver:
 
     @staticmethod
     def validate_input(name: str, phone: str, email: str, pay_rate: float):
+        '''
+        Validate the input parameters for a caregiver.
+
+        Args:
+            name (str): Name of caretaker.
+            phone (str): Phone number of caretaker.
+            email (str): Email of caretaker.
+            pay_rate (float): Caretaker hourly pay rate.
+
+        Raises:
+            ValueError: If fields left empty, pay rate is negative, or email format is invalid. 
+        '''
         if not all([name, phone, email]):
             raise ValueError("Name, phone, and email are required!")
         if pay_rate < 0:
@@ -139,25 +202,74 @@ class Caregiver:
             raise ValueError("Email format is invalid!")
 
     def set_availability(self, date: str, shift: str, status: str) -> None:
+        '''
+        Set the availability of a caregiver for a specific date and shift.
+
+        Args:
+            date (str): The date in string format.
+            shift (str): The shift identifier -- either AM or PM.
+            status (str): Availability status from AvailStatus Class.
+
+        Raises:
+            ValueError: If the availability status is not a valid AvailStatus value.
+        '''
         if status not in [AvailStatus.AVAILABLE, AvailStatus.UNAVAILABLE, AvailStatus.PREFERRED]:
             raise ValueError(f"Availability status is invalid! -- {status}")
         self.availability[(date, shift)] = status
 
     def get_availability(self, date: str, shift: str) -> None:
+        '''
+        Get the availability status for a specific date and shift.
+
+        Args:
+            date (str): The date to check.
+            shift (str): The shift to check -- either AM or PM.
+
+        Returns:
+            str: The availability status (defaulting to Available if not set).
+        '''
         return self.availability.get((date, shift), AvailStatus.AVAILABLE)
 
     def add_hours(self, hours: float) -> None:
+        '''
+        Add worked hours to the caregivers total.
+
+        Args:
+            hours (float): Number of hours to be added.
+
+        Raises:
+            ValueError: If hours is a negative number.
+        '''
         if hours < 0:
             raise ValueError("Hours cannot be negative! Time doesn't flow that way!")
         self.hours += hours
-# Create schedule to allow for everything to be taken into account and viewable
+
 class Schedule:
+    '''
+    A class to create the schedule among other functions.
+    '''
     def __init__(self, caregivers: List[Caregiver]):
+        '''
+        Initializes a new Schedule instance.
+
+        Args:
+            caregivers (List[Caregiver]): A list of caregivers available for scheduling.
+        '''
         self.caregiver = caregivers
         self.schedule: Dict = {}
         self.formatter = HTMLScheduleFormatter()
 
     def create_schedule(self, month: int, year: int) -> None:
+        '''
+        Creates a complete schedule for the given month and year -- considers caregiver availability and workload balance.
+
+        Args:
+            month (int): Month to be scheduled.
+            year (int): Year to be scheduled.
+
+        Raises:
+            ValueError: If a month or year is invalid. 
+        '''
         self._validate_date(month, year)
         cal = calendar.Calendar()
 
@@ -166,12 +278,30 @@ class Schedule:
                 self._schedule_day(day, month, year)
 
     def _validate_date(self, month: int, year: int) -> None:
+        '''
+        Validate the given month and year.
+
+        Args:
+            month (int): Month to be validated.
+            year (int): Year to be validated.
+
+        Raises:
+            ValueError: If month is not 1-12 OR if year is before 2000.
+        '''
         if not 1 <= month <= 12:
             raise ValueError("Invalid month!")
         if year < 2000:
             raise ValueError("Invalid year!")
         
     def _schedule_day(self, day: int, month: int, year: int) -> None:
+        '''
+        Schedule both AM and PM shifts for a particular day.
+
+        Args:
+            day (int): Day of month.
+            month (int): Month, ranging from 1-12.
+            year (int): Put simply, the year.
+        '''
         date = f'{year}-{month:02d}-{day:02d}'
         self.schedule[date] = {"AM": None, "PM": None}
 
@@ -179,6 +309,17 @@ class Schedule:
             self._assign_shift(date, shift)
 
     def _assign_shift(self, date: str, shift: str) -> None:
+        '''
+        Assigns a caregiver to a specific shift, based on factors such as:
+            - Preference
+            - General availability
+            - Current workload
+        Marks no coverage, if and only if, none is available.
+
+        Args:
+            date (str): Date -- in YYYY-MM-DD format.
+            shift (str): Shift to assign -- either AM or PM.
+        '''
         available_caregivers = [
             caregiver for caregiver in self.caregiver
             if caregiver.get_availability(date, shift) != AvailStatus.UNAVAILABLE
@@ -202,25 +343,45 @@ class Schedule:
             self.schedule[date][shift] = "No coverage"
 
     def display_schedule(self) -> None:
+        '''
+        Displays the schedule in a simple, text format, and prints each date with its AM and PM shift assignements.
+        '''
         print("Care Schedule:\n")
         for date, shifts in self.schedule.items():
             print(f"{date}: AM: {shifts['AM']}, PM: {shifts['PM']}")
 
     def generate_html_schedule(self, month: int, year: int) -> str:
+        '''
+        Generates a HTML formatter version of the schedule.
+
+        Args:
+            month (int): Month to be display.
+            year (int): Year to be display.
+
+        Returns:
+            str: HTML formatted schedule. 
+        '''
         return self.formatter.format_schedule(self.schedule, month, year)
     
 class PayReport:
     """
-    A class to generate pay reports for caregivers
-    Attributes: caregivers, a list
+    A class to generate and display pay reports for caregivers.
     """
     def __init__(self, caregivers: List[Caregiver]):
+        '''
+        Initializes a new PayReport instance.
+
+        Args:
+            caregivers (List[Caregiver]): A list of caregivers to generate reports for.
+        '''
         self.caregivers = caregivers
 
     def calculate_pay(self) -> Dict:
         """
-        Calculates weekly and monthly pay per caregive
-        Returns a dictionary where keys are caregiver names, values are dictionaries containing hours, payrate, etc
+        Calculates payment details for all caregivers.
+        
+        Returns:
+            Dict: a dictionary where keys are caregiver names, values are dictionaries containing hours, payrate, etc.
         """
         pay_data = {}
         for caregiver in self.caregivers:
@@ -235,8 +396,15 @@ class PayReport:
     
     def generate_html_report(self) -> str:
         """
-        Generates HTML report for caregiver pay info
-        Returns HTML content as a string
+        Generates a HTML formatted pay report.
+
+        Returns:
+            str: HTML formatted string, which contains:
+                - A table with caregiver payment details
+                - Hours worked
+                - Pay rates
+                - Weekly and monthly pay calculations
+                - Total payments across all caregivers
         """
         pay_data = self.calculate_pay()
         total_weekly = sum(data["weekly_gross"] for data in pay_data.values())
@@ -289,7 +457,7 @@ class PayReport:
     
     def display_pay_report(self) -> None:
         """
-        Displays the pay report
+        Displays the pay report to console/CLI.
         """
         pay_data = self.calculate_pay()
         print("\nPay report:\n")
